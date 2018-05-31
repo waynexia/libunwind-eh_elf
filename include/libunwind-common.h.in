@@ -180,6 +180,11 @@ typedef struct unw_accessors
        NULL.  */
     int (*get_proc_name) (unw_addr_space_t, unw_word_t, char *, size_t,
 			  unw_word_t *, void *);
+
+    /* Retrieve the PID of the process this memory belongs to.
+       Returns 0 for local memory or when undefined.
+       This must be non-zero for init_remote.  */
+    int (*get_pid) (void *);
   }
 unw_accessors_t;
 
