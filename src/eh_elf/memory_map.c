@@ -7,10 +7,15 @@
 
 static mmap_entry_t* _memory_map = NULL;
 static size_t _memory_map_size = 0;
+static int _mmap_init_done = 0;
 
 /// Init the memory map with a given /proc/XX/ argument
 int mmap_init_procdir(const char* procdir);
 
+
+static int compare_mmap_entry(const void* e1, const void* e2) {
+    return ((mmap_entry_t*)e1)->beg_ip - ((mmap_entry_t*)e2)->beg_ip;
+}
 
 int mmap_init_local() {
     return mmap_init_procdir("/proc/self/");
@@ -80,6 +85,10 @@ int mmap_init_procdir(const char* procdir) {
     _memory_map = (mmap_entry_t*)
         realloc(_memory_map, _memory_map_size * sizeof(mmap_entry_t));
 
+    // Ensure the entries are sorted by ascending ip range
+    qsort(_memory_map, _memory_map_size, sizeof(mmap_entry_t),
+            compare_mmap_entry);
+
     // dlopen corresponding eh_elf objects
     for(size_t id = 0; id < _memory_map_size; ++id) {
         char eh_elf_path[256];
@@ -88,10 +97,14 @@ int mmap_init_procdir(const char* procdir) {
         _memory_map[id].eh_elf = dlopen(eh_elf_path, RTLD_LAZY);
     }
 
+    _mmap_init_done = 1;
+
     return 0;
 }
 
 void mmap_clear() {
+    _mmap_init_done = 0;
+
     if(_memory_map != NULL) {
         for(size_t pos=0; pos < _memory_map_size; ++pos) {
             free(_memory_map[pos].object_name);
@@ -99,4 +112,29 @@ void mmap_clear() {
         }
         free(_memory_map);
     }
+}
+
+static int bsearch_compar_mmap_entry(const void* vkey, const void* vmmap_elt) {
+    uintptr_t key = *(uintptr_t*)vkey;
+    const mmap_entry_t* mmap_elt = (const mmap_entry_t*) vmmap_elt;
+
+    if(mmap_elt->beg_ip <= key && key < mmap_elt->end_ip)
+        return 0;
+    if(key < mmap_elt->beg_ip)
+        return -1;
+    return 1;
+}
+
+mmap_entry_t* mmap_get_entry(uintptr_t ip) {
+    // Perform a binary search to find the requested ip
+
+    if(!_mmap_init_done)
+        return NULL;
+
+    return bsearch(
+            (void*)&ip,
+            (void*)_memory_map,
+            _memory_map_size,
+            sizeof(mmap_entry_t),
+            bsearch_compar_mmap_entry);
 }

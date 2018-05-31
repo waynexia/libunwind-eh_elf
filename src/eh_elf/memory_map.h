@@ -44,5 +44,8 @@ int mmap_init_local();
  **/
 int mmap_init_pid(pid_t pid);
 
-/// Get the `mmap_entry_t` corresponding to the given IP
-int mmap_get_entry(uintptr_t ip, mmap_entry_t* entry);
+/** Get the `mmap_entry_t` corresponding to the given IP
+ * @return a pointer to the corresponding memory map entry, or NULL upon
+ * failure.
+ **/
+mmap_entry_t* mmap_get_entry(uintptr_t ip);
