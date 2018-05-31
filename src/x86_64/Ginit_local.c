@@ -26,6 +26,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
 
 #include "unwind_i.h"
+#include "../eh_elf/eh_elf.h"
 #include "init.h"
 
 #ifdef UNW_REMOTE_ONLY
@@ -41,6 +42,8 @@ unw_init_local (unw_cursor_t *cursor, ucontext_t *uc)
 PROTECTED int
 unw_init_local (unw_cursor_t *cursor, ucontext_t *uc)
 {
+  eh_elf_init_local();
+
   struct cursor *c = (struct cursor *) cursor;
 
   if (unlikely (!tdep_init_done))
