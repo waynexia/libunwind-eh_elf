@@ -17,11 +17,6 @@
 #include <sys/types.h>
 #include "libunwind_i.h"
 
-/// Store the necessary data for a single eh_elf
-typedef struct {
-    // TODO
-} eh_elf_handle_t;
-
 /** Initialize everything for local memory analysis
  * @return 0 on success, or a negative value upon failure
  **/
@@ -37,6 +32,7 @@ void eh_elf_clear();
 
 /** Step the cursor using eh_elf mechanisms.
  *
- * Return 0 if everything went fine, otherwise, return a negative value.
+ * @return a positive value upon success, 0 if the frame before this unwinding
+ * was the last one, or a negative value upon failure.
  **/
 int eh_elf_step_cursor(struct cursor *cursor);
