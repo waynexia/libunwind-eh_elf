@@ -48,7 +48,8 @@ libunwind_ptrace_la_SOURCES =						  \
 	ptrace/_UPT_create.c ptrace/_UPT_destroy.c			  \
 	ptrace/_UPT_find_proc_info.c ptrace/_UPT_get_dyn_info_list_addr.c \
 	ptrace/_UPT_put_unwind_info.c ptrace/_UPT_get_proc_name.c	  \
-	ptrace/_UPT_reg_offset.c ptrace/_UPT_resume.c
+	ptrace/_UPT_reg_offset.c ptrace/_UPT_resume.c \
+	ptrace/_UPT_get_pid.c
 noinst_HEADERS += ptrace/_UPT_internal.h
 
 ### libunwind-coredump:
@@ -185,6 +186,16 @@ libunwind_elfxx_la_LIBADD  = $(LIBLZMA)
 
 noinst_LTLIBRARIES += $(LIBUNWIND_ELF)
 libunwind_la_LIBADD += $(LIBUNWIND_ELF)
+
+libunwind_eh_elf_la_SOURCES = \
+	eh_elf/eh_elf.c \
+	eh_elf/memory_map.c
+
+libunwind_eh_elf_la_LIBADD = $(DLLIB)
+
+noinst_LTLIBRARIES += libunwind-eh-elf.la
+libunwind_la_LIBADD += libunwind-eh-elf.la
+
 
 # The list of files that go into libunwind and libunwind-aarch64:
 noinst_HEADERS += aarch64/init.h aarch64/offsets.h aarch64/unwind_i.h

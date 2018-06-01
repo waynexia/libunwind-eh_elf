@@ -53,6 +53,7 @@ extern int _UPT_access_fpreg (unw_addr_space_t, unw_regnum_t, unw_fpreg_t *,
 extern int _UPT_get_proc_name (unw_addr_space_t, unw_word_t, char *, size_t,
                                unw_word_t *, void *);
 extern int _UPT_resume (unw_addr_space_t, unw_cursor_t *, void *);
+extern int _UPT_get_pid (void *);
 extern unw_accessors_t _UPT_accessors;
 
 

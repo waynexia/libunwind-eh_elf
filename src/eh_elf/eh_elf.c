@@ -12,5 +12,21 @@
  * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  ************************************************/
 
-#include "eh_elf_i.h"
+#include "eh_elf.h"
 
+int eh_elf_init_local() {
+    return mmap_init_local();
+}
+
+int eh_elf_init_pid(pid_t pid) {
+    return mmap_init_pid(pid);
+}
+
+void eh_elf_clear() {
+    mmap_clear();
+}
+
+int eh_elf_step_cursor(struct cursor *cursor) {
+    // TODO implement
+    return 0;
+}

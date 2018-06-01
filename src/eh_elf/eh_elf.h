@@ -33,10 +33,10 @@ int eh_elf_init_local();
 int eh_elf_init_pid(pid_t pid);
 
 /// Cleanup everything that was allocated by eh_elf_init_*
-void eh_elf_clean();
+void eh_elf_clear();
 
 /** Step the cursor using eh_elf mechanisms.
  *
- * Return 0 if everything went file, otherwise, return a negative value.
+ * Return 0 if everything went fine, otherwise, return a negative value.
  **/
 int eh_elf_step_cursor(struct cursor *cursor);
