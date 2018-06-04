@@ -42,12 +42,12 @@ unw_init_local (unw_cursor_t *cursor, ucontext_t *uc)
 PROTECTED int
 unw_init_local (unw_cursor_t *cursor, ucontext_t *uc)
 {
-  eh_elf_init_local();
-
   struct cursor *c = (struct cursor *) cursor;
 
   if (unlikely (!tdep_init_done))
     tdep_init ();
+
+  eh_elf_init_local();
 
   Debug (1, "(cursor=%p)\n", c);
 

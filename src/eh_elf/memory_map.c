@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include "libunwind_i.h"
 
 static mmap_entry_t* _memory_map = NULL;
 static size_t _memory_map_size = 0;
@@ -42,8 +43,9 @@ int mmap_init_procdir(const char* procdir) {
     int nb_entries = 0;
     int lastch;
     while((lastch = fgetc(map_handle)) != EOF) {
-        if(lastch == '\n')
+        if(lastch == '\n') {
             nb_entries++;
+        }
     }
     rewind(map_handle);
     _memory_map = (mmap_entry_t*) calloc(nb_entries, sizeof(mmap_entry_t));
@@ -54,10 +56,15 @@ int mmap_init_procdir(const char* procdir) {
     char is_x;
     char path[256];
     int cur_entry = 0;
-    while(fscanf(map_handle,
-                "%lX-%lX %*c%*c%c%*c %lX %*[0-9a-fA-F:] %ld %s",
-                &ip_beg, &ip_end, &is_x, &offset, &inode, path) != EOF)
+    int pos_before_path;
+    char* line = malloc(512 * sizeof(char));
+    size_t line_size = 512;
+    while(getline(&line, &line_size, map_handle) >= 0)
     {
+        sscanf(line,
+                "%lX-%lX %*c%*c%c%*c %lX %*[0-9a-fA-F:] %ld %n",
+                &ip_beg, &ip_end, &is_x, &offset, &inode, &pos_before_path);
+        sscanf(line + pos_before_path, "%s", path);
         if(cur_entry >= nb_entries) {
             mmap_clear();
             return -2; // Bad entry count, somehow
@@ -78,6 +85,7 @@ int mmap_init_procdir(const char* procdir) {
 
         cur_entry++;
     }
+    free(line);
 
     // Shrink _memory_map to only use up the number of relevant entries
     assert(_memory_map_size >= cur_entry);
