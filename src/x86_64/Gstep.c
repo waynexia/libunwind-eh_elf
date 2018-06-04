@@ -26,6 +26,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
 
 #include "unwind_i.h"
+#include "../eh_elf/eh_elf.h"
 #include <signal.h>
 
 /* Recognise PLT entries such as:
@@ -65,6 +66,16 @@ unw_step (unw_cursor_t *cursor)
 
   Debug (1, "(cursor=%p, ip=0x%016lx, cfa=0x%016lx)\n",
          c, c->dwarf.ip, c->dwarf.cfa);
+
+  // Try eh_elf based unwinding...
+  ret = eh_elf_step_cursor(&c);
+
+  if(ret < 0) {
+      Debug(2, "eh_elf unwinding failed (%d), falling back\n", ret);
+  }
+  else {
+      return ret;
+  }
 
   /* Try DWARF-based unwinding... */
   c->sigcontext_format = X86_64_SCF_NONE;
