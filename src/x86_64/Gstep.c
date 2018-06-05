@@ -68,12 +68,13 @@ unw_step (unw_cursor_t *cursor)
          c, c->dwarf.ip, c->dwarf.cfa);
 
   // Try eh_elf based unwinding...
-  ret = eh_elf_step_cursor(&c);
+  ret = eh_elf_step_cursor(c);
 
   if(ret < 0) {
       Debug(2, "eh_elf unwinding failed (%d), falling back\n", ret);
   }
   else {
+      Debug (2, "returning %d\n", ret);
       return ret;
   }
 

@@ -46,25 +46,57 @@ static uintptr_t fetchw_here(uintptr_t addr) {
     return out;
 }
 
+dwarf_loc_t of_eh_elf_loc(uintptr_t eh_elf_loc) {
+    if(eh_elf_loc + 1 == 0) // Undefined
+        return DWARF_NULL_LOC;
+    return DWARF_LOC(eh_elf_loc, DWARF_LOC_TYPE_VAL);
+}
+
 int eh_elf_step_cursor(struct cursor *cursor) {
     uintptr_t ip = cursor->dwarf.ip;
+
+    // Check for the end of the call chain
+    if(DWARF_IS_NULL_LOC(cursor->dwarf.loc[UNW_TDEP_IP]))
+        return 0;
+    if(!DWARF_IS_NULL_LOC(cursor->dwarf.loc[UNW_TDEP_BP])) {
+        uintptr_t bp;
+        dwarf_get(&cursor->dwarf,
+                cursor->dwarf.loc[UNW_TDEP_BP], &bp);
+        if(bp == 0)
+            return 0;
+    }
 
     // Retrieve memory map entry
     mmap_entry_t* mmap_entry = mmap_get_entry(ip);
     if(mmap_entry == NULL)
         return -1;
 
+    Debug(5, "In memory map entry %lx-%lx (%s) - off %lx, ip %lx%s\n",
+            mmap_entry->beg_ip,
+            mmap_entry->end_ip,
+            mmap_entry->object_name,
+            mmap_entry->offset,
+            ip - mmap_entry->offset,
+            mmap_entry->eh_elf == NULL ? " [MISSING EH_ELF]" : "");
+
     // Retrieve a pointer to the eh_elf function
     _fde_func_with_deref_t fde_func =
-        (_fde_func_t) (dlsym(mmap_entry->eh_elf, "_eh_elf"));
+        (_fde_func_with_deref_t) (dlsym(mmap_entry->eh_elf, "_eh_elf"));
     if(fde_func == NULL)
         return -2;
 
     // Setup an eh_elf context
     unwind_context_t eh_elf_context;
     eh_elf_context.rip = ip;
-    eh_elf_context.rsp = cursor->dwarf.loc[UNW_TDEP_SP].val;
-    eh_elf_context.rbp = cursor->dwarf.loc[UNW_TDEP_BP].val;
+    dwarf_get(&cursor->dwarf,
+            cursor->dwarf.loc[UNW_TDEP_SP], &eh_elf_context.rsp);
+    dwarf_get(&cursor->dwarf,
+            cursor->dwarf.loc[UNW_TDEP_BP], &eh_elf_context.rbp);
+
+    Debug(4, "BEFORE eh_elf_context: rip=0x%lx, rsp=0x%lx, rbp=0x%lx\n",
+            eh_elf_context.rip,
+            eh_elf_context.rsp,
+            eh_elf_context.rbp);
 
     // Set _fetch_state before passing fetchw_here
     _fetch_state.addr_space = cursor->dwarf.as;
@@ -76,24 +108,26 @@ int eh_elf_step_cursor(struct cursor *cursor) {
             ip - mmap_entry->offset,
             fetchw_here);
 
-    // Check for the end of the call chain
-    if(eh_elf_context.rbp == 0 || eh_elf_context.rip + 1 == 0)
-        return 0;
-
     // Push back the data into libunwind's structures
     for (int i = 0; i < DWARF_NUM_PRESERVED_REGS; ++i)
         cursor->dwarf.loc[i] = DWARF_NULL_LOC;
 
-    cursor->dwarf.loc[UNW_TDEP_BP].val = eh_elf_context.rbp;
-    cursor->dwarf.loc[UNW_TDEP_SP].val = eh_elf_context.rsp;
-    cursor->dwarf.loc[UNW_TDEP_IP].val = eh_elf_context.rip;
+    cursor->dwarf.loc[UNW_TDEP_BP] = of_eh_elf_loc(eh_elf_context.rbp);
+    cursor->dwarf.loc[UNW_TDEP_SP] = of_eh_elf_loc(eh_elf_context.rsp);
+    cursor->dwarf.loc[UNW_TDEP_IP] = of_eh_elf_loc(eh_elf_context.rip);
     cursor->dwarf.use_prev_instr = 1;
+
+    Debug(4, "AFTER  eh_elf_context: rip=0x%lx, rsp=0x%lx, rbp=0x%lx\n",
+            eh_elf_context.rip,
+            eh_elf_context.rsp,
+            eh_elf_context.rbp);
 
     cursor->frame_info.frame_type = UNW_X86_64_FRAME_GUESSED;
     cursor->frame_info.cfa_reg_rsp = 0;
     cursor->frame_info.cfa_reg_offset = 16;
     cursor->frame_info.rbp_cfa_offset = -16;
     cursor->dwarf.cfa += 16;
+    cursor->dwarf.ip = eh_elf_context.rip;
 
     return 1;
 }
