@@ -14,8 +14,15 @@ static int _mmap_init_done = 0;
 int mmap_init_procdir(const char* procdir);
 
 
-static int compare_mmap_entry(const void* e1, const void* e2) {
-    return ((mmap_entry_t*)e1)->beg_ip - ((mmap_entry_t*)e2)->beg_ip;
+static int compare_mmap_entry(const void* _e1, const void* _e2) {
+    // We can't return e1->beg_ip - e2->beg_ip because of int overflows
+    const mmap_entry_t *e1 = _e1,
+                       *e2 = _e2;
+    if(e1->beg_ip < e2->beg_ip)
+        return -1;
+    if(e1->beg_ip > e2->beg_ip)
+        return 1;
+    return 0;
 }
 
 int mmap_init_local() {
@@ -76,7 +83,7 @@ int mmap_init_procdir(const char* procdir) {
             continue;
 
         _memory_map[cur_entry].id = cur_entry;
-        _memory_map[cur_entry].offset = offset;
+        _memory_map[cur_entry].offset = ip_beg - offset;
         _memory_map[cur_entry].beg_ip = ip_beg;
         _memory_map[cur_entry].end_ip = ip_end;
         _memory_map[cur_entry].object_name =
@@ -88,7 +95,7 @@ int mmap_init_procdir(const char* procdir) {
     free(line);
 
     // Shrink _memory_map to only use up the number of relevant entries
-    assert(_memory_map_size >= cur_entry);
+    assert(_memory_map_size >= (size_t)cur_entry);
     _memory_map_size = cur_entry; // Because of skipped entries
     _memory_map = (mmap_entry_t*)
         realloc(_memory_map, _memory_map_size * sizeof(mmap_entry_t));
