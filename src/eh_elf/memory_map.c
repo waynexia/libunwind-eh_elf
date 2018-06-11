@@ -13,6 +13,13 @@ static int _mmap_init_done = 0;
 /// Init the memory map with a given /proc/XX/ argument
 int mmap_init_procdir(const char* procdir);
 
+/// Reorder the entries in `entries` by increasing (non-overlapping)
+/// memory region
+static int mmap_order_entries(mmap_entry_t* entries, size_t count);
+
+/// `dlopen`s the corresponding eh_elf for each entry in `entries`.
+static int mmap_dlopen_eh_elfs(mmap_entry_t* entries, size_t count);
+
 
 static int compare_mmap_entry(const void* _e1, const void* _e2) {
     // We can't return e1->beg_ip - e2->beg_ip because of int overflows
@@ -101,19 +108,79 @@ int mmap_init_procdir(const char* procdir) {
         realloc(_memory_map, _memory_map_size * sizeof(mmap_entry_t));
 
     // Ensure the entries are sorted by ascending ip range
-    qsort(_memory_map, _memory_map_size, sizeof(mmap_entry_t),
-            compare_mmap_entry);
+    if(mmap_order_entries(_memory_map, _memory_map_size) < 0)
+        return -3;
 
     // dlopen corresponding eh_elf objects
-    for(size_t id = 0; id < _memory_map_size; ++id) {
-        char eh_elf_path[256];
-        char* obj_basename = basename(_memory_map[id].object_name);
-        sprintf(eh_elf_path, "%s.eh_elf.so", obj_basename);
-        _memory_map[id].eh_elf = dlopen(eh_elf_path, RTLD_LAZY);
-    }
+    if(mmap_dlopen_eh_elfs(_memory_map, _memory_map_size) < 0)
+        return -4;
 
     _mmap_init_done = 1;
 
+    return 0;
+}
+
+int mmap_init_mmap(unw_mmap_entry_t* entries, size_t count) {
+    Debug(3, "Start reading mmap (entries=%016lx)\n", (uintptr_t)entries);
+    Debug(3, "%lu entries\n", count);
+    _memory_map = (mmap_entry_t*) calloc(count, sizeof(mmap_entry_t));
+    _memory_map_size = count;
+
+    int mmap_pos = 0;
+    for(int pos=0; pos < (int)count; ++pos) {
+        Debug(3, "> MMAP %016lx-%016lx %s\n",
+                entries[pos].beg_ip,
+                entries[pos].end_ip,
+                entries[pos].object_name);
+
+        if(entries[pos].object_name[0] == '[') {
+            // Special entry (stack,vdso, …)
+            continue;
+        }
+
+        _memory_map[mmap_pos].id = pos;
+        _memory_map[mmap_pos].offset = entries[pos].offset;
+        _memory_map[mmap_pos].beg_ip = entries[pos].beg_ip;
+        _memory_map[mmap_pos].end_ip = entries[pos].end_ip;
+        _memory_map[mmap_pos].object_name =
+            malloc(strlen(entries[pos].object_name) + 1);
+        strcpy(_memory_map[mmap_pos].object_name, entries[pos].object_name);
+
+        ++mmap_pos;
+    }
+
+    // Shrink memory map
+    _memory_map_size = mmap_pos;
+    _memory_map = (mmap_entry_t*)
+        realloc(_memory_map, _memory_map_size * sizeof(mmap_entry_t));
+
+    if(mmap_order_entries(_memory_map, _memory_map_size) < 0)
+        return -3;
+    if(mmap_dlopen_eh_elfs(_memory_map, _memory_map_size) < 0)
+        return -4;
+    Debug(3, "Init complete");
+    return 0;
+}
+
+/// Ensure entries in the memory map are ordered by ascending beg_ip
+static int mmap_order_entries(mmap_entry_t* entries, size_t count) {
+    qsort(entries, count, sizeof(mmap_entry_t),
+            compare_mmap_entry);
+    for(size_t pos = 0; pos < count; ++pos)
+        entries[pos].id = pos;
+    return 0;
+}
+
+/// `dlopen` the needed eh_elf objects.
+static int mmap_dlopen_eh_elfs(mmap_entry_t* entries, size_t count) {
+    for(size_t id = 0; id < count; ++id) {
+        char eh_elf_path[256];
+        char* obj_basename = basename(entries[id].object_name);
+        sprintf(eh_elf_path, "%s.eh_elf.so", obj_basename);
+        entries[id].eh_elf = dlopen(eh_elf_path, RTLD_LAZY);
+        if(entries[id].eh_elf == NULL)
+            return -1;
+    }
     return 0;
 }
 

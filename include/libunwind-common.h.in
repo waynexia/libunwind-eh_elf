@@ -138,6 +138,37 @@ typedef struct unw_proc_info
   }
 unw_proc_info_t;
 
+/// A structure containing the informations gathererd about a line in the
+/// memory map
+typedef struct {
+   uintptr_t offset;  ///< Total offset: ip + offset = ip in original ELF file
+   char* object_name; ///< Name of the object mapped here
+   uintptr_t beg_ip, end_ip; ///< Start and end IP of this object in memory
+} unw_mmap_entry_t;
+
+typedef enum {
+    UNW_EH_ELF_INIT_PID,    ///< Use PID to init eh_elf
+    UNW_EH_ELF_INIT_MMAP,   ///< Directly provide a memory map yourself
+} unw_eh_elf_init_mode;
+
+/** This structure is passed among the accessors, and contains what's needed to
+ * init eh_elf unwinding. */
+struct unw_eh_elf_init_acc {
+    unw_eh_elf_init_mode init_mode;
+    union {
+        /// Provide this with UNW_EH_ELF_INIT_PID.
+        /// int get_pid(void* arg) returns the process' PID
+        int (*get_pid) (void *);
+
+        /// Provide this with UNW_EH_ELF_INIT_MMAP
+        void (*get_mmap)
+            (unw_mmap_entry_t**,    ///< An array of mmap_entries
+             size_t*,               ///< number of entries
+             void*                  ///< `arg`
+            );
+    } init_data;
+};
+
 /* These are backend callback routines that provide access to the
    state of a "remote" process.  This can be used, for example, to
    unwind another process through the ptrace() interface.  */
@@ -181,10 +212,8 @@ typedef struct unw_accessors
     int (*get_proc_name) (unw_addr_space_t, unw_word_t, char *, size_t,
 			  unw_word_t *, void *);
 
-    /* Retrieve the PID of the process this memory belongs to.
-       Returns 0 for local memory or when undefined.
-       This must be non-zero for init_remote.  */
-    int (*get_pid) (void *);
+    /* A substructure of accessors used to init eh_elf unwinding. */
+    struct unw_eh_elf_init_acc eh_elf_init;
   }
 unw_accessors_t;
 

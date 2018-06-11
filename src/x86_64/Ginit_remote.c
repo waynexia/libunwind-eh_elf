@@ -36,13 +36,31 @@ unw_init_remote (unw_cursor_t *cursor, unw_addr_space_t as, void *as_arg)
   return -UNW_EINVAL;
 #else /* !UNW_LOCAL_ONLY */
   struct cursor *c = (struct cursor *) cursor;
+  int ret;
+  struct unw_eh_elf_init_acc* eh_elf_acc = &as->acc.eh_elf_init;
 
   if (!tdep_init_done)
     tdep_init ();
 
   Debug (1, "(cursor=%p)\n", c);
 
-  eh_elf_init_pid(as->acc.get_pid(as_arg));
+  switch(eh_elf_acc->init_mode) {
+      case UNW_EH_ELF_INIT_PID:
+          ret = eh_elf_init_pid(eh_elf_acc->init_data.get_pid(as_arg));
+          if(ret < 0)
+              return ret;
+          break;
+      case UNW_EH_ELF_INIT_MMAP: {
+          unw_mmap_entry_t* entries;
+          size_t entries_count;
+          eh_elf_acc->init_data.get_mmap(&entries, &entries_count, as_arg);
+          ret = eh_elf_init_mmap(entries, entries_count);
+          free(entries);
+          if(ret < 0)
+              return ret;
+          break;
+      }
+  }
 
   c->dwarf.as = as;
   if (as == unw_local_addr_space)

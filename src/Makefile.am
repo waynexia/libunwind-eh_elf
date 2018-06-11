@@ -49,7 +49,7 @@ libunwind_ptrace_la_SOURCES =						  \
 	ptrace/_UPT_find_proc_info.c ptrace/_UPT_get_dyn_info_list_addr.c \
 	ptrace/_UPT_put_unwind_info.c ptrace/_UPT_get_proc_name.c	  \
 	ptrace/_UPT_reg_offset.c ptrace/_UPT_resume.c \
-	ptrace/_UPT_get_pid.c
+	ptrace/_UPT_eh_elf_init.c
 noinst_HEADERS += ptrace/_UPT_internal.h
 
 ### libunwind-coredump:

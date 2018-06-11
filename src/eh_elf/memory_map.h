@@ -18,6 +18,8 @@
 #include <stdint.h>
 #include <dlfcn.h>
 
+#include "libunwind.h"
+
 /// A type representing a dlopen handle
 typedef void* dl_obj_t;
 
@@ -43,6 +45,11 @@ int mmap_init_local();
  * @returns 0 upon success, or a negative value upon failure.
  **/
 int mmap_init_pid(pid_t pid);
+
+/** Init the memory map from a provided memory map
+ * @returns 0 upon success, or a negative value upon failure.
+ **/
+int mmap_init_mmap(unw_mmap_entry_t* entries, size_t count);
 
 /** Get the `mmap_entry_t` corresponding to the given IP
  * @return a pointer to the corresponding memory map entry, or NULL upon

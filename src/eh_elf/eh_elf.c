@@ -23,7 +23,13 @@ int eh_elf_init_local() {
 }
 
 int eh_elf_init_pid(pid_t pid) {
+    Debug(3, "Init with pid\n");
     return mmap_init_pid(pid);
+}
+
+int eh_elf_init_mmap(unw_mmap_entry_t* entries, size_t count) {
+    Debug(3, "Init with mmap\n");
+    return mmap_init_mmap(entries, count);
 }
 
 void eh_elf_clear() {

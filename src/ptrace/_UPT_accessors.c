@@ -35,5 +35,10 @@ PROTECTED unw_accessors_t _UPT_accessors =
     .access_fpreg               = _UPT_access_fpreg,
     .resume                     = _UPT_resume,
     .get_proc_name              = _UPT_get_proc_name,
-    .get_pid                    = _UPT_get_pid
+    .eh_elf_init                = {
+        .init_mode              = UNW_EH_ELF_INIT_PID,
+        .init_data              = {
+            .get_pid            = _UPT_get_pid
+        }
+    }
   };

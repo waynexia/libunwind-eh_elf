@@ -27,6 +27,11 @@ int eh_elf_init_local();
  **/
 int eh_elf_init_pid(pid_t pid);
 
+/** Initialize everything with the provided memory map
+ * @return 0 on success, or a negative value upon failure
+ **/
+int eh_elf_init_mmap(unw_mmap_entry_t* entries, size_t count);
+
 /// Cleanup everything that was allocated by eh_elf_init_*
 void eh_elf_clear();
 
