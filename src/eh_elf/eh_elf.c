@@ -114,6 +114,14 @@ int eh_elf_step_cursor(struct cursor *cursor) {
             ip - mmap_entry->offset,
             fetchw_here);
 
+    if(eh_elf_context.rbp + 1 == 0
+            && eh_elf_context.rsp + 1 == 0
+            && eh_elf_context.rip + 1 == 0) {
+        // Error, somehow
+        Debug(2, "eh_elf unwinding FAILED\n");
+        return -3;
+    }
+
     // Push back the data into libunwind's structures
     for (int i = 0; i < DWARF_NUM_PRESERVED_REGS; ++i)
         cursor->dwarf.loc[i] = DWARF_NULL_LOC;
