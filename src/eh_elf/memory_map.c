@@ -46,6 +46,8 @@ int mmap_init_pid(pid_t pid) {
 int mmap_init_procdir(const char* procdir) {
     // This function reads /proc/pid/maps and deduces the memory map
 
+    mmap_clear();
+
     // Open the mmap file
     char map_path[128];
     sprintf(map_path, "%s/maps", procdir);
@@ -123,20 +125,23 @@ int mmap_init_procdir(const char* procdir) {
 int mmap_init_mmap(unw_mmap_entry_t* entries, size_t count) {
     Debug(3, "Start reading mmap (entries=%016lx)\n", (uintptr_t)entries);
     Debug(3, "%lu entries\n", count);
+
+    mmap_clear();
+
     _memory_map = (mmap_entry_t*) calloc(count, sizeof(mmap_entry_t));
     _memory_map_size = count;
 
     int mmap_pos = 0;
     for(int pos=0; pos < (int)count; ++pos) {
-        Debug(3, "> MMAP %016lx-%016lx %s\n",
-                entries[pos].beg_ip,
-                entries[pos].end_ip,
-                entries[pos].object_name);
-
         if(entries[pos].object_name[0] == '[') {
             // Special entry (stack,vdso, …)
             continue;
         }
+
+        Debug(3, "> MMAP %016lx-%016lx %s\n",
+                entries[pos].beg_ip,
+                entries[pos].end_ip,
+                entries[pos].object_name);
 
         _memory_map[mmap_pos].id = pos;
         _memory_map[mmap_pos].offset = entries[pos].offset;
@@ -158,7 +163,9 @@ int mmap_init_mmap(unw_mmap_entry_t* entries, size_t count) {
         return -3;
     if(mmap_dlopen_eh_elfs(_memory_map, _memory_map_size) < 0)
         return -4;
-    Debug(3, "Init complete");
+
+    _mmap_init_done = 1;
+    Debug(3, "Init complete\n");
     return 0;
 }
 
@@ -210,9 +217,11 @@ static int bsearch_compar_mmap_entry(const void* vkey, const void* vmmap_elt) {
 mmap_entry_t* mmap_get_entry(uintptr_t ip) {
     // Perform a binary search to find the requested ip
 
-    if(!_mmap_init_done)
+    Debug(3, "Getting mmap entry %016lx\n", ip);
+    if(!_mmap_init_done) {
+        Debug(1, "Mmap access before init! Aborting\n");
         return NULL;
-
+    }
     return bsearch(
             (void*)&ip,
             (void*)_memory_map,
