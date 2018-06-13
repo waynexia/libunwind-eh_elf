@@ -99,14 +99,14 @@ int eh_elf_step_cursor(struct cursor *cursor) {
     dwarf_get(&cursor->dwarf,
             cursor->dwarf.loc[UNW_TDEP_BP], &eh_elf_context.rbp);
 
-    Debug(4, "BEFORE eh_elf_context: rip=0x%lx, rsp=0x%lx, rbp=0x%lx\n",
-            eh_elf_context.rip,
-            eh_elf_context.rsp,
-            eh_elf_context.rbp);
-
     // Set _fetch_state before passing fetchw_here
     _fetch_state.addr_space = cursor->dwarf.as;
     _fetch_state.accessors = &cursor->dwarf.as->acc;
+    _fetch_state.arg = &cursor->dwarf.as_arg;
+
+    Debug(4, "Unwinding in mmap entry %s at position 0x%lx\n",
+            mmap_entry->object_name,
+            ip - mmap_entry->offset);
 
     // Call fde_func
     eh_elf_context = fde_func(
@@ -122,11 +122,6 @@ int eh_elf_step_cursor(struct cursor *cursor) {
     cursor->dwarf.loc[UNW_TDEP_SP] = of_eh_elf_loc(eh_elf_context.rsp);
     cursor->dwarf.loc[UNW_TDEP_IP] = of_eh_elf_loc(eh_elf_context.rip);
     cursor->dwarf.use_prev_instr = 1;
-
-    Debug(4, "AFTER  eh_elf_context: rip=0x%lx, rsp=0x%lx, rbp=0x%lx\n",
-            eh_elf_context.rip,
-            eh_elf_context.rsp,
-            eh_elf_context.rbp);
 
     cursor->frame_info.frame_type = UNW_X86_64_FRAME_GUESSED;
     cursor->frame_info.cfa_reg_rsp = 0;
