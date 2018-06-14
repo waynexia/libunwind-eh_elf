@@ -28,7 +28,8 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
 #include "unwind_i.h"
 #include "../eh_elf/eh_elf.h"
 #include <signal.h>
-#include "remote.h"
+#include <time.h>
+#include <libunwind.h>
 
 /* Recognise PLT entries such as:
      3bdf0: ff 25 e2 49 13 00 jmpq   *0x1349e2(%rip)
@@ -57,6 +58,7 @@ is_plt_entry (struct dwarf_cursor *c)
 PROTECTED int
 unw_step (unw_cursor_t *cursor)
 {
+  struct timespec _timer_start = chrono_start();
   struct cursor *c = (struct cursor *) cursor;
   int ret, i;
 
@@ -77,6 +79,7 @@ unw_step (unw_cursor_t *cursor)
       Debug(2, "eh_elf unwinding failed (%d), falling back\n", ret);
   }
   else {
+      chrono_end(_timer_start);
       Debug (2, "returning %d\n", ret);
       return ret;
   }
