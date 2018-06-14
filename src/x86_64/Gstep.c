@@ -28,6 +28,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
 #include "unwind_i.h"
 #include "../eh_elf/eh_elf.h"
 #include <signal.h>
+#include "remote.h"
 
 /* Recognise PLT entries such as:
      3bdf0: ff 25 e2 49 13 00 jmpq   *0x1349e2(%rip)
@@ -67,6 +68,8 @@ unw_step (unw_cursor_t *cursor)
   Debug (1, "(cursor=%p, ip=0x%016lx, cfa=0x%016lx)\n",
          c, c->dwarf.ip, c->dwarf.cfa);
 
+  c->sigcontext_format = X86_64_SCF_NONE;
+
   // Try eh_elf based unwinding...
   ret = eh_elf_step_cursor(c);
 
@@ -79,7 +82,6 @@ unw_step (unw_cursor_t *cursor)
   }
 
   /* Try DWARF-based unwinding... */
-  c->sigcontext_format = X86_64_SCF_NONE;
   ret = dwarf_step (&c->dwarf);
 
 #if CONSERVATIVE_CHECKS
@@ -102,6 +104,10 @@ unw_step (unw_cursor_t *cursor)
             c->dwarf.ip = 0;
             ret = 0;
           }
+
+        uintptr_t dbp;
+        dwarf_get(&c->dwarf, c->dwarf.loc[RBP], &dbp);
+        Debug (3, "     DWARF:  bp=%016lx sp=%016lx ip=%016lx\n", dbp, c->dwarf.cfa, c->dwarf.ip);
     }
   else
     {
