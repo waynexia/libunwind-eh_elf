@@ -95,6 +95,11 @@ noinst_HEADERS				+= setjmp/setjmp_i.h
 ### libunwind:
 libunwind_la_LIBADD =
 
+### libunwind-benchmarking
+libunwind_benchmarking_la_SOURCES = benchmarking.c
+noinst_LTLIBRARIES += libunwind-benchmarking.la
+libunwind_la_LIBADD += libunwind-benchmarking.la
+
 # List of arch-independent files needed by both local-only and generic
 # libraries:
 libunwind_la_SOURCES_common =					\
