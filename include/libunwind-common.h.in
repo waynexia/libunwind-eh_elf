@@ -289,3 +289,10 @@ extern const char *unw_strerror (int);
 extern int unw_backtrace (void **, int);
 
 extern unw_addr_space_t unw_local_addr_space;
+
+#include <time.h>
+
+struct timespec chrono_report(void);
+struct timespec chrono_start(void);
+void chrono_end(struct timespec);
+void chrono_report_disp(void);
