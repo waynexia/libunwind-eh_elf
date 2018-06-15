@@ -27,6 +27,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
 
 #include "unwind_i.h"
 #include <signal.h>
+#include <libunwind.h>
 
 /* Recognise PLT entries such as:
      3bdf0: ff 25 e2 49 13 00 jmpq   *0x1349e2(%rip)
@@ -57,6 +58,8 @@ unw_step (unw_cursor_t *cursor)
 {
   struct cursor *c = (struct cursor *) cursor;
   int ret, i;
+
+  struct timespec _timer_start = chrono_start();
 
 #if CONSERVATIVE_CHECKS
   int val = c->validate;
@@ -119,6 +122,7 @@ unw_step (unw_cursor_t *cursor)
           ret = unw_handle_signal_frame(cursor);
           if (ret < 0)
             {
+              chrono_end(_timer_start);
               Debug (2, "returning 0\n");
               return 0;
             }
@@ -203,6 +207,7 @@ unw_step (unw_cursor_t *cursor)
       if (DWARF_IS_NULL_LOC (c->dwarf.loc[RBP]))
         {
           ret = 0;
+          chrono_end(_timer_start);
           Debug (2, "NULL %%rbp loc, returning %d\n", ret);
           return ret;
         }
@@ -225,6 +230,7 @@ unw_step (unw_cursor_t *cursor)
       if (c->dwarf.ip == prev_ip && c->dwarf.cfa == prev_cfa)
         return -UNW_EBADFRAME;
     }
+  chrono_end(_timer_start);
   Debug (2, "returning %d\n", ret);
   return ret;
 }
