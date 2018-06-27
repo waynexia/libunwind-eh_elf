@@ -58,8 +58,8 @@ static uintptr_t fetchw_here(uintptr_t addr) {
     return out;
 }
 
-dwarf_loc_t of_eh_elf_loc(uintptr_t eh_elf_loc) {
-    if(eh_elf_loc + 1 == 0) // Undefined
+dwarf_loc_t of_eh_elf_loc(uintptr_t eh_elf_loc, uint8_t flags, int flag_id) {
+    if((flags & (1 << flag_id)) == 0)
         return DWARF_NULL_LOC;
     return DWARF_LOC(eh_elf_loc, DWARF_LOC_TYPE_VAL);
 }
@@ -106,6 +106,8 @@ int eh_elf_step_cursor(struct cursor *cursor) {
     eh_elf_context.rsp = cursor->dwarf.cfa;
     dwarf_get(&cursor->dwarf,
             cursor->dwarf.loc[UNW_TDEP_BP], &eh_elf_context.rbp);
+    dwarf_get(&cursor->dwarf,
+            cursor->dwarf.loc[UNW_X86_64_RBX], &eh_elf_context.rbx);
 
     // Set _fetch_state before passing fetchw_here
     _fetch_state.cursor = cursor;
@@ -116,6 +118,7 @@ int eh_elf_step_cursor(struct cursor *cursor) {
             ip - mmap_entry->offset,
             eh_elf_context.rsp);
 
+    eh_elf_context.flags = 0;
     // Call fde_func
     eh_elf_context = fde_func(
             eh_elf_context,
@@ -127,11 +130,10 @@ int eh_elf_step_cursor(struct cursor *cursor) {
         return -4;
     }
 
-    if(eh_elf_context.rbp + 1 == 0
-            && eh_elf_context.rsp + 1 == 0
-            && eh_elf_context.rip + 1 == 0) {
+    if(((eh_elf_context.flags & (1 << UNWF_ERROR))) != 0) {
         // Error, somehow
-        Debug(2, "eh_elf unwinding FAILED\n");
+        Debug(3, "eh_elf unwinding FAILED (fl=%02x), IP=0x%016lx\n",
+                eh_elf_context.flags, ip);
         return -3;
     }
 
@@ -150,9 +152,14 @@ int eh_elf_step_cursor(struct cursor *cursor) {
     for (int i = 0; i < DWARF_NUM_PRESERVED_REGS; ++i)
         cursor->dwarf.loc[i] = DWARF_NULL_LOC;
 
-    cursor->dwarf.loc[UNW_TDEP_BP] = of_eh_elf_loc(eh_elf_context.rbp);
-    cursor->dwarf.loc[UNW_TDEP_SP] = of_eh_elf_loc(eh_elf_context.rsp);
-    cursor->dwarf.loc[UNW_TDEP_IP] = of_eh_elf_loc(eh_elf_context.rip);
+    cursor->dwarf.loc[UNW_TDEP_BP] = of_eh_elf_loc(
+            eh_elf_context.rbp, eh_elf_context.flags, UNWF_RBP);
+    cursor->dwarf.loc[UNW_TDEP_SP] = of_eh_elf_loc(
+            eh_elf_context.rsp, eh_elf_context.flags, UNWF_RSP);
+    cursor->dwarf.loc[UNW_TDEP_IP] = of_eh_elf_loc(
+            eh_elf_context.rip, eh_elf_context.flags, UNWF_RIP);
+    cursor->dwarf.loc[UNW_X86_64_RBX] = of_eh_elf_loc(
+            eh_elf_context.rbx, eh_elf_context.flags, UNWF_RBX);
     cursor->dwarf.use_prev_instr = 0;
 
     cursor->frame_info.frame_type = UNW_X86_64_FRAME_GUESSED;
