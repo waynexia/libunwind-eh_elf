@@ -120,12 +120,6 @@ int eh_elf_step_cursor(struct cursor *cursor) {
             ip - mmap_entry->offset,
             mmap_entry->eh_elf == NULL ? " [MISSING EH_ELF]" : "");
 
-    // Retrieve a pointer to the eh_elf function
-    _fde_func_with_deref_t fde_func =
-        (_fde_func_with_deref_t) (dlsym(mmap_entry->eh_elf, "_eh_elf"));
-    if(fde_func == NULL)
-        return -2;
-
     // Setup an eh_elf context
     unwind_context_t eh_elf_context;
     eh_elf_context.rip = ip;
@@ -149,7 +143,7 @@ int eh_elf_step_cursor(struct cursor *cursor) {
 
     eh_elf_context.flags = 0;
     // Call fde_func
-    eh_elf_context = fde_func(
+    eh_elf_context = mmap_entry->fde_func(
             eh_elf_context,
             ip - mmap_entry->offset,
             fetchw_here);

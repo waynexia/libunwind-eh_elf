@@ -18,9 +18,6 @@ int mmap_init_procdir(const char* procdir);
 /// memory region
 static int mmap_order_entries(mmap_entry_t* entries, size_t count);
 
-/// `dlopen` a new list entry, or fetch it
-static dl_obj_t mmap_dlopen_eh_elf(const char* obj_name);
-
 /// `dlopen`s the corresponding eh_elf for each entry in `entries`.
 static int mmap_dlopen_eh_elfs(mmap_entry_t* entries, size_t count);
 
@@ -181,20 +178,20 @@ static int mmap_order_entries(mmap_entry_t* entries, size_t count) {
     return 0;
 }
 
-static dl_obj_t mmap_dlopen_eh_elf(const char* obj_name) {
+/// `dlopen` a new list entry, or fetch it
+static dl_obj_list_t* mmap_dlopen_eh_elf(const char* obj_name) {
     dl_obj_list_t *cur_elt = _dl_obj_list;
 
-    Debug(1, "Obj_name: %s\n", obj_name);
     while(cur_elt != NULL) {
-        Debug(1, "Cur_elt: %s\n", cur_elt->object_name);
         if(strcmp(cur_elt->object_name, obj_name) == 0) {
             Debug(4, "Reusing previous eh_elf %s\n", obj_name);
-            return cur_elt->eh_elf;
+            return cur_elt;
         }
         cur_elt = cur_elt->next;
     }
 
     // Wasn't previously opened
+    // Open the DL object
     dl_obj_list_t* new_elt = malloc(sizeof(dl_obj_list_t));
     new_elt->object_name = malloc(sizeof(char) * (strlen(obj_name) + 1));
     new_elt->next = NULL;
@@ -207,8 +204,25 @@ static dl_obj_t mmap_dlopen_eh_elf(const char* obj_name) {
     sprintf(eh_elf_path, "%s.eh_elf.so", obj_basename);
     new_elt->eh_elf = dlopen(eh_elf_path, RTLD_LAZY);
     free(obj_name_cpy);
-    if(new_elt->eh_elf == NULL)
+    if(new_elt->eh_elf == NULL) {
+        // Failed, cleanup everything
+        Debug(3, "Could not open eh_elf.so %s\n", eh_elf_path);
+        free(new_elt->object_name);
+        free(new_elt);
         return NULL;
+    }
+
+    // Find the fde function
+    new_elt->fde_func =
+        (_fde_func_with_deref_t) (dlsym(new_elt->eh_elf, "_eh_elf"));
+    if(new_elt->fde_func == NULL) {
+        // Failed, cleanup everything
+        Debug(3, "Could not find _eh_elf in %s\n", eh_elf_path);
+        free(new_elt->object_name);
+        dlclose(new_elt->eh_elf);
+        free(new_elt);
+        return NULL;
+    }
 
     char opened_file[256];
     dlinfo(new_elt->eh_elf, RTLD_DI_ORIGIN, opened_file);
@@ -218,16 +232,18 @@ static dl_obj_t mmap_dlopen_eh_elf(const char* obj_name) {
     new_elt->next = _dl_obj_list;
     _dl_obj_list = new_elt;
 
-    return new_elt->eh_elf;
+    return new_elt;
 }
 
 /// `dlopen` the needed eh_elf objects.
 static int mmap_dlopen_eh_elfs(mmap_entry_t* entries, size_t count) {
     for(size_t id = 0; id < count; ++id) {
-        dl_obj_t eh_elf = mmap_dlopen_eh_elf(entries[id].object_name);
-        if(eh_elf == NULL)
+        dl_obj_list_t* eh_elf_elt =
+            mmap_dlopen_eh_elf(entries[id].object_name);
+        if(eh_elf_elt == NULL)
             return -1;
-        entries[id].eh_elf = eh_elf;
+        entries[id].eh_elf = eh_elf_elt->eh_elf;
+        entries[id].fde_func = eh_elf_elt->fde_func;
     }
     return 0;
 }

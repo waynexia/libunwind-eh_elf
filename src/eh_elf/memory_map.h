@@ -19,6 +19,7 @@
 #include <dlfcn.h>
 
 #include "libunwind.h"
+#include "context_struct.h"
 
 /// A type representing a dlopen handle
 typedef void* dl_obj_t;
@@ -27,6 +28,7 @@ typedef void* dl_obj_t;
 typedef struct dl_obj_list {
    char* object_name;       ///< Name of the object mapped here
    dl_obj_t eh_elf;         ///< Corresponding eh_elf file, dlopen'd
+   _fde_func_with_deref_t fde_func; ///< Fde deref function, directly
    struct dl_obj_list* next;     ///< Next item in the list
 } dl_obj_list_t;
 
@@ -38,6 +40,7 @@ typedef struct {
    char* object_name; ///< Name of the object mapped here
    uintptr_t beg_ip, end_ip; ///< Start and end IP of this object in memory
    dl_obj_t eh_elf;   ///< Corresponding eh_elf file, dlopen'd
+   _fde_func_with_deref_t fde_func; ///< Fde deref function, directly
 } mmap_entry_t;
 
 /// Dealloc all allocated memory and reset internal state

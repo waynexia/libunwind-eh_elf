@@ -1,5 +1,7 @@
 #include <stdint.h>
 
+#pragma once
+
 typedef enum {
     UNWF_RIP=0,
     UNWF_RSP=1,
