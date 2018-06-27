@@ -9,6 +9,7 @@
 static mmap_entry_t* _memory_map = NULL;
 static size_t _memory_map_size = 0;
 static int _mmap_init_done = 0;
+static dl_obj_list_t* _dl_obj_list = NULL;
 
 /// Init the memory map with a given /proc/XX/ argument
 int mmap_init_procdir(const char* procdir);
@@ -17,9 +18,11 @@ int mmap_init_procdir(const char* procdir);
 /// memory region
 static int mmap_order_entries(mmap_entry_t* entries, size_t count);
 
+/// `dlopen` a new list entry, or fetch it
+static dl_obj_t mmap_dlopen_eh_elf(const char* obj_name);
+
 /// `dlopen`s the corresponding eh_elf for each entry in `entries`.
 static int mmap_dlopen_eh_elfs(mmap_entry_t* entries, size_t count);
-
 
 static int compare_mmap_entry(const void* _e1, const void* _e2) {
     // We can't return e1->beg_ip - e2->beg_ip because of int overflows
@@ -178,29 +181,76 @@ static int mmap_order_entries(mmap_entry_t* entries, size_t count) {
     return 0;
 }
 
+static dl_obj_t mmap_dlopen_eh_elf(const char* obj_name) {
+    dl_obj_list_t *cur_elt = _dl_obj_list;
+
+    Debug(1, "Obj_name: %s\n", obj_name);
+    while(cur_elt != NULL) {
+        Debug(1, "Cur_elt: %s\n", cur_elt->object_name);
+        if(strcmp(cur_elt->object_name, obj_name) == 0) {
+            Debug(4, "Reusing previous eh_elf %s\n", obj_name);
+            return cur_elt->eh_elf;
+        }
+        cur_elt = cur_elt->next;
+    }
+
+    // Wasn't previously opened
+    dl_obj_list_t* new_elt = malloc(sizeof(dl_obj_list_t));
+    new_elt->object_name = malloc(sizeof(char) * (strlen(obj_name) + 1));
+    new_elt->next = NULL;
+    strcpy(new_elt->object_name, obj_name);
+
+    char eh_elf_path[256];
+    char *obj_name_cpy = malloc(strlen(obj_name) + 1);
+    strcpy(obj_name_cpy, obj_name);
+    char* obj_basename = basename(obj_name_cpy);
+    sprintf(eh_elf_path, "%s.eh_elf.so", obj_basename);
+    new_elt->eh_elf = dlopen(eh_elf_path, RTLD_LAZY);
+    free(obj_name_cpy);
+    if(new_elt->eh_elf == NULL)
+        return NULL;
+
+    char opened_file[256];
+    dlinfo(new_elt->eh_elf, RTLD_DI_ORIGIN, opened_file);
+    Debug(4, "Opened %s/%s\n", opened_file, eh_elf_path);
+
+    // Linking, prepending
+    new_elt->next = _dl_obj_list;
+    _dl_obj_list = new_elt;
+
+    return new_elt->eh_elf;
+}
+
 /// `dlopen` the needed eh_elf objects.
 static int mmap_dlopen_eh_elfs(mmap_entry_t* entries, size_t count) {
     for(size_t id = 0; id < count; ++id) {
-        char eh_elf_path[256];
-        char* obj_basename = basename(entries[id].object_name);
-        sprintf(eh_elf_path, "%s.eh_elf.so", obj_basename);
-        entries[id].eh_elf = dlopen(eh_elf_path, RTLD_LAZY);
-        if(entries[id].eh_elf == NULL)
+        dl_obj_t eh_elf = mmap_dlopen_eh_elf(entries[id].object_name);
+        if(eh_elf == NULL)
             return -1;
+        entries[id].eh_elf = eh_elf;
     }
     return 0;
 }
 
 void mmap_clear() {
     _mmap_init_done = 0;
+//    dl_obj_list_t* dl_obj_list = _dl_obj_list;
 
     if(_memory_map != NULL) {
         for(size_t pos=0; pos < _memory_map_size; ++pos) {
             free(_memory_map[pos].object_name);
-            dlclose(_memory_map[pos].eh_elf);
         }
         free(_memory_map);
     }
+//    while(dl_obj_list != NULL) {
+//        dlclose(dl_obj_list->eh_elf);
+//        free(dl_obj_list->object_name);
+//
+//        dl_obj_list_t* prev = dl_obj_list;
+//        dl_obj_list = dl_obj_list->next;
+//        free(prev);
+//    }
+//    _dl_obj_list = NULL;
 }
 
 static int bsearch_compar_mmap_entry(const void* vkey, const void* vmmap_elt) {

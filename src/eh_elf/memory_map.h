@@ -23,6 +23,13 @@
 /// A type representing a dlopen handle
 typedef void* dl_obj_t;
 
+/// A linked list of dl_obj_t
+typedef struct dl_obj_list {
+   char* object_name;       ///< Name of the object mapped here
+   dl_obj_t eh_elf;         ///< Corresponding eh_elf file, dlopen'd
+   struct dl_obj_list* next;     ///< Next item in the list
+} dl_obj_list_t;
+
 /// A structure containing the informations gathererd about a line in the
 /// memory map
 typedef struct {
