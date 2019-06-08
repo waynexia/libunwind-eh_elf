@@ -55,6 +55,18 @@ is_plt_entry (struct dwarf_cursor *c)
   return ret;
 }
 
+extern int init_id;
+
+static int unw_step_id(unw_cursor_t *cursor) {
+    struct cursor *c = (struct cursor *) cursor;
+    return (
+            ((c->dwarf.ip + c->dwarf.cfa * 257) % 1000003)
+            + (1000003 * init_id))
+        % (1000000007);
+}
+
+#define UnwDebug(lvl, fmt, ...) Debug(lvl, "[%X] " fmt, unw_step_id(cursor), ##__VA_ARGS__)
+
 PROTECTED int
 unw_step (unw_cursor_t *cursor)
 {

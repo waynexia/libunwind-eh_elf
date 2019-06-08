@@ -29,6 +29,8 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
 #include "../eh_elf/eh_elf.h"
 #include "unwind_i.h"
 
+int init_id = 0;
+
 PROTECTED int
 unw_init_remote (unw_cursor_t *cursor, unw_addr_space_t as, void *as_arg)
 {
@@ -42,7 +44,8 @@ unw_init_remote (unw_cursor_t *cursor, unw_addr_space_t as, void *as_arg)
   if (!tdep_init_done)
     tdep_init ();
 
-  Debug (1, "(cursor=%p)\n", c);
+  init_id++;
+  Debug (1, "(init_id=%d, cursor=%p)\n", init_id, c);
 
   switch(eh_elf_acc->init_mode) {
       case UNW_EH_ELF_INIT_PID:
