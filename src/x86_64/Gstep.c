@@ -57,22 +57,30 @@ is_plt_entry (struct dwarf_cursor *c)
 
 extern int init_id;
 
-static int unw_step_id(unw_cursor_t *cursor) {
-    struct cursor *c = (struct cursor *) cursor;
+typedef struct {
+    unw_word_t orig_ip;
+    unw_word_t orig_cfa;
+} unw_step_call_data;
+
+static int unw_step_id(unw_step_call_data *call_data) {
     return (
-            ((c->dwarf.ip + c->dwarf.cfa * 257) % 1000003)
+            ((call_data->orig_ip + call_data->orig_ip * 257) % 1000003)
             + (1000003 * init_id))
         % (1000000007);
 }
 
-#define UnwDebug(lvl, fmt, ...) Debug(lvl, "[%X] <%d> " fmt, unw_step_id(cursor), init_id, ##__VA_ARGS__)
+#define UnwDebug(lvl, fmt, ...) Debug(lvl, "[%X] <%d> {%d} " fmt, unw_step_id(&_step_id_data), init_id, __LINE__, ##__VA_ARGS__)
 
 PROTECTED int
 unw_step (unw_cursor_t *cursor)
 {
+  struct cursor *c = (struct cursor *) cursor;
+  unw_step_call_data _step_id_data;
+  _step_id_data.orig_ip = c->dwarf.ip;
+  _step_id_data.orig_cfa = c->dwarf.cfa;
+
   UnwDebug(3, "unw_step called\n");
   struct timespec _timer_start = chrono_start();
-  struct cursor *c = (struct cursor *) cursor;
   int ret, i;
 
 #if CONSERVATIVE_CHECKS
