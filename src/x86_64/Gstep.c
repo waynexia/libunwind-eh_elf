@@ -65,7 +65,7 @@ static int unw_step_id(unw_cursor_t *cursor) {
         % (1000000007);
 }
 
-#define UnwDebug(lvl, fmt, ...) Debug(lvl, "[%X] " fmt, unw_step_id(cursor), ##__VA_ARGS__)
+#define UnwDebug(lvl, fmt, ...) Debug(lvl, "[%X] <%d> " fmt, unw_step_id(cursor), init_id, ##__VA_ARGS__)
 
 PROTECTED int
 unw_step (unw_cursor_t *cursor)
