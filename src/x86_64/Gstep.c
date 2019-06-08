@@ -70,6 +70,7 @@ static int unw_step_id(unw_cursor_t *cursor) {
 PROTECTED int
 unw_step (unw_cursor_t *cursor)
 {
+  UnwDebug(3, "unw_step called\n");
   struct timespec _timer_start = chrono_start();
   struct cursor *c = (struct cursor *) cursor;
   int ret, i;
@@ -79,7 +80,7 @@ unw_step (unw_cursor_t *cursor)
   c->validate = 1;
 #endif
 
-  Debug (1, "(cursor=%p, ip=0x%016lx, cfa=0x%016lx)\n",
+  UnwDebug (1, "(cursor=%p, ip=0x%016lx, cfa=0x%016lx)\n",
          c, c->dwarf.ip, c->dwarf.cfa);
 
   c->sigcontext_format = X86_64_SCF_NONE;
@@ -88,11 +89,11 @@ unw_step (unw_cursor_t *cursor)
   ret = eh_elf_step_cursor(c);
 
   if(ret < 0) {
-      Debug(2, "eh_elf unwinding failed (%d), falling back\n", ret);
+      UnwDebug(2, "eh_elf unwinding failed (%d), falling back\n", ret);
   }
   else {
       chrono_end(_timer_start);
-      Debug (2, "returning %d\n", ret);
+      UnwDebug (2, "returning %d\n", ret);
       return ret;
   }
 
@@ -105,9 +106,12 @@ unw_step (unw_cursor_t *cursor)
 
   if (ret < 0 && ret != -UNW_ENOINFO)
     {
-      Debug (2, "returning %d\n", ret);
+      UnwDebug (3, "dwarf_step also failed?\n", ret);
+      UnwDebug (2, "returning %d\n", ret);
       return ret;
     }
+  UnwDebug(4, "UNW_ENOINFO=%d\n", UNW_ENOINFO);
+  UnwDebug(3, "fallback continuing\n");
 
   if (likely (ret >= 0))
     {
@@ -122,7 +126,7 @@ unw_step (unw_cursor_t *cursor)
 
         uintptr_t dbp;
         dwarf_get(&c->dwarf, c->dwarf.loc[RBP], &dbp);
-        Debug (3, "     DWARF:  bp=%016lx sp=%016lx ip=%016lx\n", dbp, c->dwarf.cfa, c->dwarf.ip);
+        UnwDebug (3, "     DWARF:  bp=%016lx sp=%016lx ip=%016lx\n", dbp, c->dwarf.cfa, c->dwarf.ip);
     }
   else
     {
@@ -145,21 +149,21 @@ unw_step (unw_cursor_t *cursor)
          Validate all addresses before dereferencing. */
       c->validate = 1;
 
-      Debug (13, "dwarf_step() failed (ret=%d), trying frame-chain\n", ret);
+      UnwDebug (13, "dwarf_step() failed (ret=%d), trying frame-chain\n", ret);
 
       if (unw_is_signal_frame (cursor))
         {
           ret = unw_handle_signal_frame(cursor);
           if (ret < 0)
             {
-              Debug (2, "returning 0\n");
+              UnwDebug (2, "returning 0\n");
               return 0;
             }
         }
       else if (is_plt_entry (&c->dwarf))
         {
           /* Like regular frame, CFA = RSP+8, RA = [CFA-8], no regs saved. */
-          Debug (2, "found plt entry\n");
+          UnwDebug (2, "found plt entry\n");
           c->frame_info.cfa_reg_offset = 8;
           c->frame_info.cfa_reg_rsp = -1;
           c->frame_info.frame_type = UNW_X86_64_FRAME_STANDARD;
@@ -178,7 +182,7 @@ unw_step (unw_cursor_t *cursor)
           ret = dwarf_get (&c->dwarf, c->dwarf.loc[RBP], &rbp);
           if (ret < 0)
             {
-              Debug (2, "returning %d [RBP=0x%lx]\n", ret,
+              UnwDebug (2, "returning %d [RBP=0x%lx]\n", ret,
                      DWARF_GET_LOC (c->dwarf.loc[RBP]));
               return ret;
             }
@@ -197,7 +201,7 @@ unw_step (unw_cursor_t *cursor)
               rsp_loc = DWARF_NULL_LOC;
               rip_loc = DWARF_LOC (rbp + 8, 0);
               ret = dwarf_get (&c->dwarf, rbp_loc, &rbp1);
-              Debug (1, "[RBP=0x%lx] = 0x%lx (cfa = 0x%lx) -> 0x%lx\n",
+              UnwDebug (1, "[RBP=0x%lx] = 0x%lx (cfa = 0x%lx) -> 0x%lx\n",
                      (unsigned long) DWARF_GET_LOC (c->dwarf.loc[RBP]),
                      rbp, c->dwarf.cfa, rbp1);
 
@@ -236,18 +240,18 @@ unw_step (unw_cursor_t *cursor)
       if (DWARF_IS_NULL_LOC (c->dwarf.loc[RBP]))
         {
           ret = 0;
-          Debug (2, "NULL %%rbp loc, returning %d\n", ret);
+          UnwDebug (2, "NULL %%rbp loc, returning %d\n", ret);
           return ret;
         }
       if (!DWARF_IS_NULL_LOC (c->dwarf.loc[RIP]))
         {
           ret = dwarf_get (&c->dwarf, c->dwarf.loc[RIP], &c->dwarf.ip);
-          Debug (1, "Frame Chain [RIP=0x%Lx] = 0x%Lx\n",
+          UnwDebug (1, "Frame Chain [RIP=0x%Lx] = 0x%Lx\n",
                      (unsigned long long) DWARF_GET_LOC (c->dwarf.loc[RIP]),
                      (unsigned long long) c->dwarf.ip);
           if (ret < 0)
             {
-              Debug (2, "returning %d\n", ret);
+              UnwDebug (2, "returning %d\n", ret);
               return ret;
             }
           ret = 1;
@@ -258,6 +262,7 @@ unw_step (unw_cursor_t *cursor)
       if (c->dwarf.ip == prev_ip && c->dwarf.cfa == prev_cfa)
         return -UNW_EBADFRAME;
     }
-  Debug (2, "returning %d\n", ret);
+  UnwDebug(3, "Vanilla succeeded with %d\n", ret);
+  UnwDebug (2, "returning %d\n", ret);
   return ret;
 }
