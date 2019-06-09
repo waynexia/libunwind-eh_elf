@@ -97,6 +97,7 @@ int set_dwarf_loc_ifdef(
 
 int eh_elf_step_cursor(struct cursor *cursor) {
     uintptr_t ip = cursor->dwarf.ip;
+#ifdef DEBUG
     {
         uintptr_t dbp;
         dwarf_get(&cursor->dwarf, cursor->dwarf.loc[UNW_TDEP_BP], &dbp);
@@ -104,6 +105,7 @@ int eh_elf_step_cursor(struct cursor *cursor) {
                 DWARF_IS_NULL_LOC(cursor->dwarf.loc[UNW_TDEP_BP])?" [NULL]":"",
                 cursor->dwarf.cfa, cursor->dwarf.ip);
     }
+#endif
 
     // Retrieve memory map entry
     mmap_entry_t* mmap_entry = mmap_get_entry(ip);

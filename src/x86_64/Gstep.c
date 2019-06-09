@@ -62,12 +62,14 @@ typedef struct {
     unw_word_t orig_cfa;
 } unw_step_call_data;
 
+#ifdef DEBUG
 static int unw_step_id(unw_step_call_data *call_data) {
     return (
             ((call_data->orig_ip + call_data->orig_ip * 257) % 1000003)
             + (1000003 * init_id))
         % (1000000007);
 }
+#endif
 
 #define UnwDebug(lvl, fmt, ...) Debug(lvl, "[%X] <%d> {%d} " fmt, unw_step_id(&_step_id_data), init_id, __LINE__, ##__VA_ARGS__)
 
@@ -75,11 +77,14 @@ PROTECTED int
 unw_step (unw_cursor_t *cursor)
 {
   struct cursor *c = (struct cursor *) cursor;
+#ifdef DEBUG
   unw_step_call_data _step_id_data;
   _step_id_data.orig_ip = c->dwarf.ip;
   _step_id_data.orig_cfa = c->dwarf.cfa;
+#endif
 
   UnwDebug(3, "unw_step called\n");
+#ifdef DEBUG
   {
       uintptr_t dbp;
       dwarf_get(&c->dwarf, c->dwarf.loc[RBP], &dbp);
@@ -87,6 +92,7 @@ unw_step (unw_cursor_t *cursor)
               DWARF_IS_NULL_LOC(c->dwarf.loc[RBP])? " [NULL]": "",
               c->dwarf.cfa, c->dwarf.ip);
   }
+#endif
   struct timespec _timer_start = chrono_start();
   int ret, i;
 
