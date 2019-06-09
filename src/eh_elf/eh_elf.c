@@ -39,6 +39,7 @@ void eh_elf_clear() {
 static struct {
     struct cursor* cursor;
     int last_rc;
+    uintptr_t cur_rsp;
 } _fetch_state;
 
 static uintptr_t fetchw_here(uintptr_t addr) {
@@ -51,7 +52,24 @@ static uintptr_t fetchw_here(uintptr_t addr) {
             _fetch_state.cursor->dwarf.as_arg);
 
     if(rv != 0) {
-        Debug(1, "dwarf_get error %d\n", rv);
+        /*
+            Recover from slightly out-of-sync DWARF
+            ====
+
+            When we're unwinding the first frame of a chain, and we start from,
+            eg. a `pop %rbx` at the end of the function, the DWARF can be out
+            of sync and still state that eg. `%rbx` is saved at something that
+            simplifies to `%rsp-8`. Which might not be accessibe through the
+            `access_mem` abstraction, eg. if we're running perf and it didn't
+            capture the stack below `%rsp`
+        */
+        if(_fetch_state.cur_rsp - addr < 128) {
+            Debug(3, "dwarf_get warning: tried to access %lX (%lX below rsp)\n",
+                    addr, _fetch_state.cur_rsp - addr);
+            return 0; // hope that nothing bad will happen.
+        }
+        Debug(1, "dwarf_get error %d (addr %lX, sp %lX)\n",
+                rv, addr, _fetch_state.cur_rsp);
         _fetch_state.last_rc = rv;
     }
 
@@ -112,6 +130,7 @@ int eh_elf_step_cursor(struct cursor *cursor) {
     // Set _fetch_state before passing fetchw_here
     _fetch_state.cursor = cursor;
     _fetch_state.last_rc = 0;
+    _fetch_state.cur_rsp = cursor->dwarf.cfa;
 
     Debug(4, "Unwinding in mmap entry %s at position 0x%lx (sp=%016lx)\n",
             mmap_entry->object_name,
