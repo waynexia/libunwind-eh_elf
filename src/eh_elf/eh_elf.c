@@ -82,6 +82,19 @@ dwarf_loc_t of_eh_elf_loc(uintptr_t eh_elf_loc, uint8_t flags, int flag_id) {
     return DWARF_LOC(eh_elf_loc, DWARF_LOC_TYPE_VAL);
 }
 
+/** Sets `dest_reg` to `of_eh_elf_loc` if the provided register is not null.
+ * Else, leave the `dest_reg` as-is. */
+int set_dwarf_loc_ifdef(
+        dwarf_loc_t* dest_reg, uintptr_t eh_elf_loc,
+        uint8_t flags, int flag_id)
+{
+    if((flags & (1 << flag_id)) != 0) {
+        *dest_reg = of_eh_elf_loc(eh_elf_loc, flags, flag_id);
+        return 1;
+    }
+    return 0;
+}
+
 int eh_elf_step_cursor(struct cursor *cursor) {
     uintptr_t ip = cursor->dwarf.ip;
 
@@ -176,17 +189,24 @@ int eh_elf_step_cursor(struct cursor *cursor) {
             ip - mmap_entry->offset);
 
     // Push back the data into libunwind's structures
-    for (int i = 0; i < DWARF_NUM_PRESERVED_REGS; ++i)
-        cursor->dwarf.loc[i] = DWARF_NULL_LOC;
 
-    cursor->dwarf.loc[UNW_TDEP_BP] = of_eh_elf_loc(
-            eh_elf_context.rbp, eh_elf_context.flags, UNWF_RBP);
-    cursor->dwarf.loc[UNW_TDEP_SP] = of_eh_elf_loc(
-            eh_elf_context.rsp, eh_elf_context.flags, UNWF_RSP);
     cursor->dwarf.loc[UNW_TDEP_IP] = of_eh_elf_loc(
             eh_elf_context.rip, eh_elf_context.flags, UNWF_RIP);
-    cursor->dwarf.loc[UNW_X86_64_RBX] = of_eh_elf_loc(
-            eh_elf_context.rbx, eh_elf_context.flags, UNWF_RBX);
+    set_dwarf_loc_ifdef(
+            &cursor->dwarf.loc[UNW_TDEP_BP],
+            eh_elf_context.rbp,
+            eh_elf_context.flags,
+            UNWF_RBP);
+    set_dwarf_loc_ifdef(
+            &cursor->dwarf.loc[UNW_TDEP_SP],
+            eh_elf_context.rsp,
+            eh_elf_context.flags,
+            UNWF_RSP);
+    set_dwarf_loc_ifdef(
+            &cursor->dwarf.loc[UNW_X86_64_RBX],
+            eh_elf_context.rbx,
+            eh_elf_context.flags,
+            UNWF_RBX);
     cursor->dwarf.use_prev_instr = 0;
 
     cursor->frame_info.frame_type = UNW_X86_64_FRAME_GUESSED;
