@@ -80,6 +80,13 @@ unw_step (unw_cursor_t *cursor)
   _step_id_data.orig_cfa = c->dwarf.cfa;
 
   UnwDebug(3, "unw_step called\n");
+  {
+      uintptr_t dbp;
+      dwarf_get(&c->dwarf, c->dwarf.loc[RBP], &dbp);
+      UnwDebug (4, "unw_step context:  bp=%016lx%s sp=%016lx ip=%016lx\n", dbp,
+              DWARF_IS_NULL_LOC(c->dwarf.loc[RBP])? " [NULL]": "",
+              c->dwarf.cfa, c->dwarf.ip);
+  }
   struct timespec _timer_start = chrono_start();
   int ret, i;
 
@@ -114,11 +121,10 @@ unw_step (unw_cursor_t *cursor)
 
   if (ret < 0 && ret != -UNW_ENOINFO)
     {
-      UnwDebug (3, "dwarf_step also failed?\n", ret);
+      UnwDebug (3, "dwarf_step also failed [%d]?\n", ret);
       UnwDebug (2, "returning %d\n", ret);
       return ret;
     }
-  UnwDebug(4, "UNW_ENOINFO=%d\n", UNW_ENOINFO);
   UnwDebug(3, "fallback continuing\n");
 
   if (likely (ret >= 0))
@@ -135,6 +141,7 @@ unw_step (unw_cursor_t *cursor)
         uintptr_t dbp;
         dwarf_get(&c->dwarf, c->dwarf.loc[RBP], &dbp);
         UnwDebug (3, "     DWARF:  bp=%016lx sp=%016lx ip=%016lx\n", dbp, c->dwarf.cfa, c->dwarf.ip);
+        UnwDebug(3, "fallback with actual dwarf\n");
     }
   else
     {
@@ -157,7 +164,7 @@ unw_step (unw_cursor_t *cursor)
          Validate all addresses before dereferencing. */
       c->validate = 1;
 
-      UnwDebug (13, "dwarf_step() failed (ret=%d), trying frame-chain\n", ret);
+      UnwDebug (4, "dwarf_step() failed (ret=%d), trying frame-chain\n", ret);
 
       if (unw_is_signal_frame (cursor))
         {

@@ -97,6 +97,12 @@ int set_dwarf_loc_ifdef(
 
 int eh_elf_step_cursor(struct cursor *cursor) {
     uintptr_t ip = cursor->dwarf.ip;
+    {
+        uintptr_t dbp;
+        dwarf_get(&cursor->dwarf, cursor->dwarf.loc[UNW_TDEP_BP], &dbp);
+        Debug (4, "AT ENTER bp=%016lx%s sp=%016lx ip=%016lx\n", dbp,
+                DWARF_IS_NULL_LOC(cursor->dwarf.loc[UNW_TDEP_BP])?" [NULL]":"",
+                cursor->dwarf.cfa, cursor->dwarf.ip);
     }
 
     // Retrieve memory map entry
@@ -134,10 +140,12 @@ int eh_elf_step_cursor(struct cursor *cursor) {
     _fetch_state.last_rc = 0;
     _fetch_state.cur_rsp = cursor->dwarf.cfa;
 
-    Debug(4, "Unwinding in mmap entry %s at position 0x%lx (sp=%016lx)\n",
+    Debug(4, "Unwinding in mmap entry %s at position 0x%lx (sp=%016lx, bp=%016lx)\n",
             mmap_entry->object_name,
             ip - mmap_entry->offset,
-            eh_elf_context.rsp);
+            eh_elf_context.rsp,
+            eh_elf_context.rbp
+            );
 
     eh_elf_context.flags = 0;
     // Call fde_func
