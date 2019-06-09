@@ -97,17 +97,6 @@ int set_dwarf_loc_ifdef(
 
 int eh_elf_step_cursor(struct cursor *cursor) {
     uintptr_t ip = cursor->dwarf.ip;
-
-    // Check for the end of the call chain
-    if(DWARF_IS_NULL_LOC(cursor->dwarf.loc[UNW_TDEP_IP]))
-        return 0;
-
-    if(!DWARF_IS_NULL_LOC(cursor->dwarf.loc[UNW_TDEP_BP])) {
-        uintptr_t bp;
-        dwarf_get(&cursor->dwarf,
-                cursor->dwarf.loc[UNW_TDEP_BP], &bp);
-        if(bp == 0)
-            return 0;
     }
 
     // Retrieve memory map entry
@@ -215,6 +204,24 @@ int eh_elf_step_cursor(struct cursor *cursor) {
     cursor->frame_info.rbp_cfa_offset = -16;
     cursor->dwarf.cfa = eh_elf_context.rsp;
     cursor->dwarf.ip = eh_elf_context.rip;
+
+    // Check for the end of the call chain
+    if(DWARF_IS_NULL_LOC(cursor->dwarf.loc[UNW_TDEP_IP])) {
+        Debug(5, "End of call chain by null RA\n");
+        return 0;
+    }
+
+    /* FIXME ignore RBP part for now
+    if(!DWARF_IS_NULL_LOC(cursor->dwarf.loc[UNW_TDEP_BP])) {
+        uintptr_t bp;
+        dwarf_get(&cursor->dwarf,
+                cursor->dwarf.loc[UNW_TDEP_BP], &bp);
+        if(bp == 0) {
+            Debug(5, "End of call chain by null base pointer\n");
+            return 0;
+        }
+    }
+    // */
 
     return 1;
 }
