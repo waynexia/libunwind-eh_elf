@@ -156,8 +156,16 @@ int eh_elf_step_cursor(struct cursor *cursor) {
         return -3;
     }
 
-    if(eh_elf_context.rip < 10 || eh_elf_context.rsp < 10)
+    if(((eh_elf_context.flags & (1 << UNWF_RIP))
+                && eh_elf_context.rip < 10)
+            || ((eh_elf_context.flags & (1 << UNWF_RSP))
+                && eh_elf_context.rsp < 10))
+    {
+        Debug(4, "EH_ELF err. -5: rip=%lX, rsp=%lX (ip = %lX) Flags: %x (%d)\n",
+                eh_elf_context.rip, eh_elf_context.rsp, ip,
+                eh_elf_context.flags, eh_elf_context.flags & (1<<UNWF_RIP));
         return -5;
+    }
 
     Debug(3, "EH_ELF: bp=%016lx sp=%016lx ip=%016lx\n",
             eh_elf_context.rbp,
