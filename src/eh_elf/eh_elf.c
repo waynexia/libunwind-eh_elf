@@ -76,7 +76,9 @@ static uintptr_t fetchw_here(uintptr_t addr) {
     return out;
 }
 
-dwarf_loc_t of_eh_elf_loc(uintptr_t eh_elf_loc, uint8_t flags, int flag_id) {
+inline dwarf_loc_t of_eh_elf_loc(
+        uintptr_t eh_elf_loc, uint8_t flags, int flag_id)
+{
     if((flags & (1 << flag_id)) == 0)
         return DWARF_NULL_LOC;
     return DWARF_LOC(eh_elf_loc, DWARF_LOC_TYPE_VAL);
@@ -84,15 +86,12 @@ dwarf_loc_t of_eh_elf_loc(uintptr_t eh_elf_loc, uint8_t flags, int flag_id) {
 
 /** Sets `dest_reg` to `of_eh_elf_loc` if the provided register is not null.
  * Else, leave the `dest_reg` as-is. */
-int set_dwarf_loc_ifdef(
+inline void set_dwarf_loc_ifdef(
         dwarf_loc_t* dest_reg, uintptr_t eh_elf_loc,
         uint8_t flags, int flag_id)
 {
-    if((flags & (1 << flag_id)) != 0) {
+    if((flags & (1u << flag_id)) != 0)
         *dest_reg = of_eh_elf_loc(eh_elf_loc, flags, flag_id);
-        return 1;
-    }
-    return 0;
 }
 
 int eh_elf_step_cursor(struct cursor *cursor) {
@@ -155,7 +154,7 @@ int eh_elf_step_cursor(struct cursor *cursor) {
         return -4;
     }
 
-    if(((eh_elf_context.flags & (1 << UNWF_ERROR))) != 0) {
+    if(((eh_elf_context.flags & (1u << UNWF_ERROR))) != 0) {
         // Error, somehow
         Debug(3, "eh_elf unwinding FAILED (fl=%02x), IP=0x%016lx\n",
                 eh_elf_context.flags, ip);
